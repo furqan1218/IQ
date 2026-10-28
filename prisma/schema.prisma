@@ -1,0 +1,277 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Animal {
+  id                  Int                   @id @default(autoincrement())
+  eidDayId            Int
+  animalNumber        Int
+  totalShares         Int
+  createdAt           DateTime              @default(now())
+  EidDay              EidDay                @relation(fields: [eidDayId], references: [id])
+  OrderLineAllocation OrderLineAllocation[]
+  Share               Share[]
+
+  @@unique([eidDayId, animalNumber])
+}
+
+model AnimalCategory {
+  id                Int                 @id @default(autoincrement())
+  name              String              @unique
+  sharesPerAnimal   Int
+  createdAt         DateTime            @default(now())
+  AnimalSubCategory AnimalSubCategory[]
+}
+
+model AnimalSubCategory {
+  id                   Int                 @id @default(autoincrement())
+  categoryId           Int
+  name                 String
+  pricePerShare        Float               @default(0)
+  createdAt            DateTime             @default(now())
+  AnimalCategory       AnimalCategory      @relation(fields: [categoryId], references: [id])
+  EidDay               EidDay[]
+  SupplierPurchaseLine SupplierPurchaseLine[]
+
+  @@unique([categoryId, name])
+}
+
+model ChartOfAccount {
+  id                                               Int              @id @default(autoincrement())
+  code                                             String           @unique
+  name                                             String
+  type                                             AccountType
+  level                                            Int
+  parentId                                         Int?
+  createdAt                                        DateTime         @default(now())
+  updatedAt                                        DateTime
+  ChartOfAccount                                   ChartOfAccount?  @relation("ChartOfAccountToChartOfAccount", fields: [parentId], references: [id], onDelete: Restrict)
+  other_ChartOfAccount                             ChartOfAccount[] @relation("ChartOfAccountToChartOfAccount")
+  Expense_Expense_expenseAccountIdToChartOfAccount Expense[]        @relation("Expense_expenseAccountIdToChartOfAccount")
+  Expense_Expense_paymentAccountIdToChartOfAccount Expense[]        @relation("Expense_paymentAccountIdToChartOfAccount")
+  JournalItem                                      JournalItem[]
+}
+
+model EidDay {
+  id                Int                 @id @default(autoincrement())
+  subCategoryId     Int
+  dayNumber         Int
+  capacity          Int
+  createdAt         DateTime            @default(now())
+  Animal            Animal[]
+  AnimalSubCategory AnimalSubCategory   @relation(fields: [subCategoryId], references: [id])
+  OrderLine         OrderLine[]
+
+  @@unique([subCategoryId, dayNumber])
+}
+
+model Expense {
+  id                                                      Int            @id @default(autoincrement())
+  description                                             String
+  amount                                                  Float          @default(0)
+  date                                                    DateTime       @default(now())
+  expenseAccountId                                        Int
+  paymentAccountId                                        Int
+  createdAt                                               DateTime       @default(now())
+  ChartOfAccount_Expense_expenseAccountIdToChartOfAccount ChartOfAccount @relation("Expense_expenseAccountIdToChartOfAccount", fields: [expenseAccountId], references: [id])
+  ChartOfAccount_Expense_paymentAccountIdToChartOfAccount ChartOfAccount @relation("Expense_paymentAccountIdToChartOfAccount", fields: [paymentAccountId], references: [id])
+}
+
+model JournalItem {
+  id               Int            @id @default(autoincrement())
+  journalVoucherId Int
+  accountId        Int
+  debit            Float          @default(0)
+  credit           Float          @default(0)
+  description      String?
+  ChartOfAccount   ChartOfAccount @relation(fields: [accountId], references: [id])
+  JournalVoucher   JournalVoucher @relation(fields: [journalVoucherId], references: [id], onDelete: Cascade)
+}
+
+model JournalVoucher {
+  id          Int            @id @default(autoincrement())
+  voucherNo   String         @unique
+  date        DateTime
+  description String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime
+  JournalItem JournalItem[]
+}
+
+model Order {
+  id              Int             @id @default(autoincrement())
+  customerNumber  Int             @unique @default(autoincrement())
+  customerId      Int
+  orderNumber     Int             @unique
+  status          OrderStatus     @default(HOLD)
+  createdAt       DateTime        @default(now())
+  QurbaniCustomer QurbaniCustomer @relation(fields: [customerId], references: [id])
+  OrderLine       OrderLine[]
+  Payment         Payment[]
+}
+
+model OrderLine {
+  id                  Int                   @id @default(autoincrement())
+  orderId             Int
+  eidDayId            Int
+  sharesRequested     Int
+  pricePerShare       Float                 @default(0)
+  totalPrice          Float                 @default(0)
+  createdAt           DateTime              @default(now())
+  EidDay              EidDay                @relation(fields: [eidDayId], references: [id])
+  Order               Order                 @relation(fields: [orderId], references: [id])
+  OrderLineAllocation OrderLineAllocation[]
+}
+
+model OrderLineAllocation {
+  id              Int       @id @default(autoincrement())
+  orderLineId     Int
+  animalId        Int
+  sharesAllocated Int
+  createdAt       DateTime  @default(now())
+  Animal          Animal    @relation(fields: [animalId], references: [id])
+  OrderLine       OrderLine @relation(fields: [orderLineId], references: [id])
+  Share           Share[]
+}
+
+model Payment {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  amount    Float    @default(0)
+  method    String?
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  Order     Order    @relation(fields: [orderId], references: [id])
+}
+
+model QurbaniCustomer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String
+  address   String?
+  createdAt DateTime @default(now())
+  Order     Order[]
+}
+
+model Share {
+  id                  Int                 @id @default(autoincrement())
+  allocationId        Int
+  animalId            Int
+  shareNumber         Int
+  name                String
+  createdAt           DateTime            @default(now())
+  OrderLineAllocation OrderLineAllocation @relation(fields: [allocationId], references: [id], onDelete: Cascade)
+  Animal              Animal              @relation(fields: [animalId], references: [id])
+
+  @@unique([animalId, shareNumber])
+}
+
+model Supplier {
+  id               Int               @id @default(autoincrement())
+  name             String
+  phone            String
+  address          String?
+  createdAt        DateTime          @default(now())
+  SupplierDeposit  SupplierDeposit[]
+  SupplierPurchase SupplierPurchase[]
+}
+
+model SupplierDeposit {
+  id         Int       @id @default(autoincrement())
+  supplierId Int
+  amount     Float     @default(0)
+  type       DepositType
+  method     String?
+  date       DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  Supplier   Supplier  @relation(fields: [supplierId], references: [id])
+}
+
+model SupplierPayment {
+  id                   Int                   @id @default(autoincrement())
+  purchaseId           Int
+  lineId               Int
+  type                 SupplierPaymentType
+  percentage           Float?
+  amount               Float                 @default(0)
+  method               String?
+  createdAt             DateTime              @default(now())
+  SupplierPurchaseLine SupplierPurchaseLine @relation(fields: [lineId], references: [id])
+  SupplierPurchase     SupplierPurchase     @relation(fields: [purchaseId], references: [id])
+}
+
+model SupplierPurchase {
+  id                   Int                   @id @default(autoincrement())
+  supplierId           Int
+  purchaseNumber       Int                   @unique
+  status               SupplierPurchaseStatus @default(OPEN)
+  createdAt            DateTime              @default(now())
+  SupplierPayment      SupplierPayment[]
+  Supplier             Supplier              @relation(fields: [supplierId], references: [id])
+  SupplierPurchaseLine SupplierPurchaseLine[]
+}
+
+model SupplierPurchaseLine {
+  id                Int                 @id @default(autoincrement())
+  purchaseId        Int
+  subCategoryId     Int
+  quantity          Int
+  pricePerAnimal    Float               @default(0)
+  totalPrice        Float               @default(0)
+  createdAt         DateTime            @default(now())
+  SupplierPayment   SupplierPayment[]
+  SupplierPurchase  SupplierPurchase    @relation(fields: [purchaseId], references: [id])
+  AnimalSubCategory AnimalSubCategory   @relation(fields: [subCategoryId], references: [id])
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String?  @unique
+  phone     String?  @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum DepositType {
+  RECEIVED
+  REFUNDED
+}
+
+enum OrderStatus {
+  HOLD
+  CONFIRMED
+  CANCELLED
+  PENDING
+}
+
+enum Role {
+  SUPER_ADMIN
+  ACCOUNTS
+  ADMIN
+  USER
+}
+
+enum SupplierPaymentType {
+  PARTIAL
+  FINAL
+}
+
+enum SupplierPurchaseStatus {
+  OPEN
+  CLOSED
+}
